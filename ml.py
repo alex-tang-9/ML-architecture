@@ -5,56 +5,79 @@ class Base:
     def __init__(self):
         self.layers = []
 
-    def Linear(self, in_features, out_features):
-        layer = Linear(in_features, out_features)
+    def Linear(self, in_features, out_features, bias=True):
+        layer = Linear(in_features, out_features, bias=True)
         self.layers.append(layer)
         return layer
 
     def parameters(self):
-        for layer in self.layers:
-            layer.parameters()
+        return [
+            layer_parameters
+            for layer in self.layers
+            for layer_parameters in layer.parameters()
+        ]
 
     def __call__(self, x):
         return self.forward(x)
 
 
 class Linear:
-    def __init__(self, in_features, out_features, bias=False):
-        self.weight = [
-            [Tensor(random.random()) for _ in range(in_features)] for _ in range(out_features)
-        ]
-        print(self.weight)
-        if bias == True:
-            self.bias = [Tensor(random.random() for _ in range(out_features))]
-        else:
-            self.bias = None
+    def __init__(self, in_features, out_features, bias=True):
+        self.neurons = [Neuron(in_features, bias) for _ in range(out_features)]
+        print(self.neurons)
+        self.bias = bias
 
     def forward(self, x):
-        if self.bias != None:
+        if self.bias != False:
             return [
-                sum(i * j for i, j in zip(x, w_col)) + b
-                for w_col, b in zip(self.weight, self.bias)
+                sum(i * j for i, j in zip(x, neuron.weights)) + neuron.bias
+                for neuron in self.neurons
             ]
         else:
-            return [sum(i * j for i, j in zip(x, w_col)) for w_col in self.weight]
+            if len(self.neurons) == 1:
+                return sum(i * j for i, j in zip(x, self.neurons[0].weights))
+            else:
+                return [
+                    sum(i * j for i, j in zip(x, neuron.weights))
+                    for neuron in self.neurons
+                ]
 
     def __call__(self, x):
         return self.forward(x)
 
     def parameters(self):
+        # n_weights = f"[Parameter containing:\n{[weight.item() for neuron in self.neurons for weight in neuron.weights]}]"
+        # n_bias = (
+        #     f",\n[Parameter containing:\n{[neuron.bias for neuron in self.neurons]}]"
+        #     if self.neurons[0].bias != False
+        #     else ""
+        # )
+        # return n_weights + n_bias
+        return [
+            parameter for neuron in self.neurons for parameter in neuron.parameters()
+        ]
+
+
+class Neuron:
+    def __init__(self, in_features, bias=False):
+        self.weights = [Tensor(random.random()) for _ in range(in_features)]
+        self.bias = Tensor(random.random()) if bias == True else None
+
+    def __call__(self):
+        return self.weights
+
+    def __repr__(self):
+        return f"Neuron[weights = {self.weights}]"
         if self.bias != None:
-            print(self.weight)
-            print(self.bias)
-        else:
-            print(self.weight)
+            print(f"Neuron bias = {self.bias}")
 
-
-import math
+    def parameters(self):
+        return self.weights + [self.bias]
 
 
 class Tensor:
     def __init__(self, data, _children=(), _op=""):
-        if (isinstance(data, list)):
+        if isinstance(data, list):
             return [Tensor(i) for i in data]
         self.data = data
         self._prev = set(_children)
@@ -63,7 +86,7 @@ class Tensor:
         self.grad = 0.0
 
     def __repr__(self):
-        return f"Tensor[data = {self.data}]"
+        return f"tensor({self.data})"
 
     def __add__(self, other):
         if isinstance(other, Tensor) == False:
@@ -76,6 +99,9 @@ class Tensor:
 
         out._backward = _backward
         return out
+
+    def __radd__(self, other):
+        return self + other
 
     def __mul__(self, other):
         if isinstance(other, Tensor) == False:
@@ -104,6 +130,9 @@ class Tensor:
 
     def __sub__(self, other):
         return self + (-other)
+
+    def __rsub__(self, other):
+        return (-self) + other
 
     def __rmul__(self, other):
         return self * other
@@ -149,6 +178,9 @@ class Tensor:
 
         for node in reversed(nodes):
             node._backward()
-            
+
     def shape():
         return None
+
+    def item(self):
+        return self.data
