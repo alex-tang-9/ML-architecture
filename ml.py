@@ -1,12 +1,12 @@
 import random
-
+import math
 
 class Base:
     def __init__(self):
         self.layers = []
 
     def Linear(self, in_features, out_features, bias=True):
-        layer = Linear(in_features, out_features, bias=True)
+        layer = Linear(in_features, out_features, bias=bias)
         self.layers.append(layer)
         return layer
 
@@ -19,6 +19,10 @@ class Base:
 
     def __call__(self, x):
         return self.forward(x)
+    
+    def zero_grad(self):
+        for parameter in self.parameters():
+            parameter.grad = 0
 
 
 class Linear:
@@ -29,10 +33,14 @@ class Linear:
 
     def forward(self, x):
         if self.bias != False:
-            return [
+            if len(self.neurons) == 1:
+                return sum(i * j for i, j in zip(x, self.neurons[0].weights)) + self.neurons[0].bias
+            
+            else:
+                return [
                 sum(i * j for i, j in zip(x, neuron.weights)) + neuron.bias
                 for neuron in self.neurons
-            ]
+                ]
         else:
             if len(self.neurons) == 1:
                 return sum(i * j for i, j in zip(x, self.neurons[0].weights))
